@@ -2,7 +2,7 @@ name: Refresh Resume
 
 on:
   schedule:
-    - cron: '0 */4 * * *'  # Обновление каждые 4 часа
+    - cron: '12 */4 * * *'  # Обновление каждые 4 часа
 
 jobs:
   refresh:
