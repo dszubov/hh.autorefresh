@@ -1,8 +1,7 @@
 name: Refresh Resume
 
 on:
-  schedule:
-    - cron: '0 */4 * * *'  # Обновление каждые 4 часа
+  workflow_dispatch:
 
 jobs:
   refresh:
