@@ -1,0 +1,25 @@
+name: Refresh Resume
+
+on:
+  schedule:
+    - cron: '0 */4 * * *'  # Обновление каждые 4 часа
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies
+        run: |
+          pip install requests
+          pip install logging
+
+      - name: Run script
+        run: python hh.py ${{ secrets.HH_TOKEN }} ${{ secrets.HH_RESUME_ID }}
