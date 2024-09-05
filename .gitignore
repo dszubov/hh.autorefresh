@@ -92,3 +92,8 @@ ENV/
 
 # IDE project settings
 .vscode
+
+# Tests
+tests/
+*.sh
+tests/*
