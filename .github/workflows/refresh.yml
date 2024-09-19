@@ -3,7 +3,7 @@ name: Refresh Resume
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 */4 * * *'
+    - cron: '56 */4 * * *'
 
 jobs:
   refresh:
