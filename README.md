@@ -22,7 +22,9 @@
    - `HH_RESUME_ID`: идентификатор резюме
    - `HH_CLIENT_ID`: OAuth `client_id` из вашего приложения HH
    - `HH_CLIENT_SECRET`: OAuth `client_secret` из вашего приложения HH
-   - `HH_REFRESH_TOKEN`: refresh token (получается один раз при первичной OAuth-авторизации)
+   - `HH_REFRESH_TOKEN`: refresh token (заполняется автоматически manual-workflow'ом)
+   - `HH_REDIRECT_URI`: redirect URI вашего OAuth-приложения HH
+   - `HH_GH_SECRETS_TOKEN`: GitHub PAT для автоматического обновления secrets
 
 3. **Запустите GitHub Actions**:
    - Workflow `refresh.yml` запускается по расписанию каждые 4 часа.
@@ -42,7 +44,7 @@
 2. `HH_REFRESH_TOKEN`
    - Нужен только для первичной настройки: пройдите OAuth Authorization Code flow из раздела OAuth документации.
    - Получите `code` через redirect URI, затем обменяйте `code` на токены через `POST https://hh.ru/oauth/token`.
-   - Сохраните `refresh_token` в GitHub Secret `HH_REFRESH_TOKEN`; дальше workflow сам получает новый `access_token` при каждом запуске.
+   - Запустите manual-workflow `Get HH OAuth Tokens (Manual)` с этим `code` — он автоматически обновит `HH_REFRESH_TOKEN` в secrets.
 3. `HH_RESUME_ID`
    - Возьмите из URL резюме: `https://hh.ru/resume/<resume_id>`.
 
@@ -61,14 +63,18 @@ curl -X POST 'https://hh.ru/oauth/token' \
 
 ### Получение refresh_token через отдельный ручной workflow
 
-В репозитории добавлен workflow **`Get HH OAuth Tokens (Manual)`** (`.github/workflows/get-token.yml`).
+В репозитории добавлен workflow **`Get HH OAuth Tokens (Manual)`** (`.github/workflows/get-token.yml`) с минимальным ручным вводом.
+
+Подготовка (один раз):
+- добавьте secrets `HH_CLIENT_ID`, `HH_CLIENT_SECRET`, `HH_REDIRECT_URI`;
+- добавьте `HH_GH_SECRETS_TOKEN` (PAT с правом менять secrets репозитория).
 
 Как использовать:
 1. Откройте GitHub → **Actions** → **Get HH OAuth Tokens (Manual)** → **Run workflow**.
-2. Передайте 4 параметра: `client_id`, `client_secret`, `code`, `redirect_uri`.
-3. После запуска откройте `Step Summary` — там будет `refresh_token` для сохранения в секрет `HH_REFRESH_TOKEN`.
+2. Передайте только один параметр: `code` (из redirect URL).
+3. Workflow сам обменяет `code` на токены и автоматически обновит секрет `HH_REFRESH_TOKEN`.
 
-> Этот workflow запускается **только вручную** и нужен для первичной OAuth-настройки.
+> `refresh_token` не выводится в лог/summary в открытом виде.
 
 ## Режимы запуска скрипта
 

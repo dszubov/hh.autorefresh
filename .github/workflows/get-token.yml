@@ -3,34 +3,32 @@ name: Get HH OAuth Tokens (Manual)
 on:
   workflow_dispatch:
     inputs:
-      client_id:
-        description: 'HH OAuth client_id'
-        required: true
-        type: string
-      client_secret:
-        description: 'HH OAuth client_secret'
-        required: true
-        type: string
       code:
         description: 'Authorization code from redirect URL'
-        required: true
-        type: string
-      redirect_uri:
-        description: 'Redirect URI configured in HH application'
         required: true
         type: string
 
 jobs:
   exchange-code:
     runs-on: ubuntu-latest
+    env:
+      CLIENT_ID: ${{ secrets.HH_CLIENT_ID }}
+      CLIENT_SECRET: ${{ secrets.HH_CLIENT_SECRET }}
+      REDIRECT_URI: ${{ secrets.HH_REDIRECT_URI }}
+      GH_TOKEN: ${{ secrets.HH_GH_SECRETS_TOKEN }}
     steps:
+      - name: Validate required secrets
+        run: |
+          set -euo pipefail
+          [ -n "${CLIENT_ID}" ] || { echo 'Missing secret: HH_CLIENT_ID'; exit 1; }
+          [ -n "${CLIENT_SECRET}" ] || { echo 'Missing secret: HH_CLIENT_SECRET'; exit 1; }
+          [ -n "${REDIRECT_URI}" ] || { echo 'Missing secret: HH_REDIRECT_URI'; exit 1; }
+          [ -n "${GH_TOKEN}" ] || { echo 'Missing secret: HH_GH_SECRETS_TOKEN'; exit 1; }
+
       - name: Exchange authorization code for tokens
         id: exchange
         env:
-          CLIENT_ID: ${{ github.event.inputs.client_id }}
-          CLIENT_SECRET: ${{ github.event.inputs.client_secret }}
           CODE: ${{ github.event.inputs.code }}
-          REDIRECT_URI: ${{ github.event.inputs.redirect_uri }}
         run: |
           set -euo pipefail
 
@@ -44,31 +42,34 @@ jobs:
 
           if echo "${RESPONSE}" | jq -e '.error' >/dev/null; then
             echo "HH OAuth error: $(echo "${RESPONSE}" | jq -r '.error')"
-            echo "Full response: ${RESPONSE}"
             exit 1
           fi
 
-          ACCESS_TOKEN=$(echo "${RESPONSE}" | jq -r '.access_token // empty')
           REFRESH_TOKEN=$(echo "${RESPONSE}" | jq -r '.refresh_token // empty')
           EXPIRES_IN=$(echo "${RESPONSE}" | jq -r '.expires_in // empty')
 
-          if [ -z "${ACCESS_TOKEN}" ] || [ -z "${REFRESH_TOKEN}" ]; then
+          if [ -z "${REFRESH_TOKEN}" ]; then
             echo "Unexpected HH response: ${RESPONSE}"
             exit 1
           fi
 
-          echo "::add-mask::${ACCESS_TOKEN}"
           echo "::add-mask::${REFRESH_TOKEN}"
+          echo "refresh_token=${REFRESH_TOKEN}" >> "$GITHUB_OUTPUT"
+          echo "expires_in=${EXPIRES_IN}" >> "$GITHUB_OUTPUT"
 
+      - name: Update repository secret HH_REFRESH_TOKEN
+        env:
+          REFRESH_TOKEN: ${{ steps.exchange.outputs.refresh_token }}
+        run: |
+          set -euo pipefail
+          gh secret set HH_REFRESH_TOKEN --repo "${{ github.repository }}" --body "${REFRESH_TOKEN}"
+
+      - name: Summary
+        run: |
           {
-            echo "### HH OAuth tokens generated"
+            echo "### HH OAuth refresh token updated"
             echo
-            echo "- access_token expires in: ${EXPIRES_IN} seconds"
-            echo "- Save refresh_token to repository secret: HH_REFRESH_TOKEN"
-            echo "- Save client_id/client_secret to secrets: HH_CLIENT_ID / HH_CLIENT_SECRET"
-            echo
-            echo "Refresh token (copy now):"
-            echo '```'
-            echo "${REFRESH_TOKEN}"
-            echo '```'
+            echo "- Secret \\`HH_REFRESH_TOKEN\\` has been updated automatically"
+            echo "- access_token expires in: ${{ steps.exchange.outputs.expires_in }} seconds"
+            echo "- Input manually next time: only \\`code\\`"
           } >> "$GITHUB_STEP_SUMMARY"
