@@ -76,6 +76,15 @@ curl -X POST 'https://hh.ru/oauth/token' \
 
 > `refresh_token` не выводится в лог/summary в открытом виде.
 
+
+#### Если workflow не отображается в Actions
+
+Проверьте по порядку:
+1. Файл `.github/workflows/get-token.yml` находится в **default branch** репозитория (обычно `main`/`master`).
+2. В репозитории включены GitHub Actions (Settings → Actions → Allow all actions).
+3. На странице Actions выбран фильтр **All workflows**.
+4. После добавления workflow в default branch обновите страницу Actions (иногда список обновляется не мгновенно).
+
 ## Режимы запуска скрипта
 
 ### 1) Рекомендуемый: через refresh token
