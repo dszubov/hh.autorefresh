@@ -2,31 +2,86 @@
 
 [![Refresh Resume](https://github.com/dszubov/hh.autorefresh/actions/workflows/refresh.yml/badge.svg?branch=master)](https://github.com/dszubov/hh.autorefresh/actions/workflows/refresh.yml)
 
-Этот проект позволяет автоматически обновлять ваше резюме на HeadHunter (hh.ru) с использованием GitHub Actions. Это полезно для поддержания вашего резюме на верхних позициях в поисковых результатах работодателей.
+Этот проект позволяет автоматически обновлять ваше резюме на HeadHunter (hh.ru) с использованием GitHub Actions.
+
+## Как это работает теперь
+
+Скрипт `hh.py` поддерживает **автоматическое получение access token из refresh token**:
+
+1. GitHub Actions берет `HH_CLIENT_ID`, `HH_CLIENT_SECRET`, `HH_REFRESH_TOKEN` из секретов.
+2. Скрипт делает запрос в OAuth (`https://hh.ru/oauth/token`) с `grant_type=refresh_token`.
+3. Полученный `access_token` сразу используется для `POST /resumes/{resume_id}/publish`.
+
+Таким образом, вам не нужно вручную обновлять `HH_TOKEN` перед каждым запуском.
 
 ## Как использовать
 
 1. **Создайте форк [основного репозитория](https://github.com/dszubov/hh.autorefresh)**
 
 2. **Настройте секреты в вашем форке**:
-     - `HH_TOKEN`: ваш токен доступа для API hh.ru.
-     - `HH_RESUME_ID`: идентификатор вашего резюме на hh.ru.
+   - `HH_RESUME_ID`: идентификатор резюме
+   - `HH_CLIENT_ID`: OAuth `client_id` из вашего приложения HH
+   - `HH_CLIENT_SECRET`: OAuth `client_secret` из вашего приложения HH
+   - `HH_REFRESH_TOKEN`: refresh token, полученный по инструкции из wiki
 
-3. **Запуск GitHub Actions**:
-   - После настройки секретов GitHub Actions автоматически будет запускать скрипт для обновления вашего резюме каждые 4 часа.
+3. **Запустите GitHub Actions**:
+   - Workflow `refresh.yml` запускается по расписанию каждые 4 часа.
 
-## Как это работает
 
-- **GitHub Actions Workflow**: В репозитории уже настроен workflow `refresh.yml`, который запускается каждые 4 часа и выполняет скрипт `hh.py` для автоматического обновления вашего резюме.
-- **Скрипт `hh.py`**: Этот скрипт отправляет запрос на обновление резюме с использованием вашего токена доступа и идентификатора резюме.
+## Где взять данные для токена (по документации HH)
 
-## Примечания
+Официальные источники:
+- Портал разработчика: `https://dev.hh.ru/`
+- Раздел OAuth в OpenAPI/ReDoc: `https://api.hh.ru/openapi/redoc#section/Avtorizaciya`
+- Личный кабинет приложений: `https://dev.hh.ru/admin`
 
-- Токен доступа можно получить здесь [hh-api](https://dev.hh.ru/admin)
-- Идентификатор резюме (`HH_RESUME_ID`) можно получить из URL страницы вашего резюме на hh.ru. Например, если ваш URL выглядит как `https://hh.ru/resume/abcdef123456`, то `HH_RESUME_ID` будет `abcdef123456`.
-- Если вам нужно изменить частоту обновления, вы можете отредактировать расписание в файле `.github/workflows/refresh.yml`, изменив параметр `cron`.
-- Убедитесь, что ваш токен и идентификатор резюме корректны, иначе запросы к API могут завершаться ошибками.
+Что и где брать:
+1. `HH_CLIENT_ID` и `HH_CLIENT_SECRET`
+   - Создайте приложение в `https://dev.hh.ru/admin` (кнопка «Добавить приложение»).
+   - После одобрения приложения возьмите `client_id` и `client_secret` в карточке приложения.
+2. `HH_REFRESH_TOKEN`
+   - Пройдите OAuth Authorization Code flow из раздела OAuth документации.
+   - Получите `code` через redirect URI, затем обменяйте `code` на токены через `POST https://hh.ru/oauth/token`.
+   - В ответе сохраните `refresh_token` в GitHub Secret `HH_REFRESH_TOKEN`.
+3. `HH_RESUME_ID`
+   - Возьмите из URL резюме: `https://hh.ru/resume/<resume_id>`.
+
+Пример обмена `code` на токены:
+
+```bash
+curl -X POST 'https://hh.ru/oauth/token' \
+  -H 'Content-Type: application/x-www-form-urlencoded' \
+  -d 'grant_type=authorization_code' \
+  -d 'client_id=<HH_CLIENT_ID>' \
+  -d 'client_secret=<HH_CLIENT_SECRET>' \
+  -d 'code=<CODE_FROM_REDIRECT>' \
+  -d 'redirect_uri=<REDIRECT_URI>'
+```
+
+## Режимы запуска скрипта
+
+### 1) Рекомендуемый: через refresh token
+
+```bash
+python hh.py \
+  --resume-id <resume_id> \
+  --client-id <client_id> \
+  --client-secret <client_secret> \
+  --refresh-token <refresh_token>
+```
+
+### 2) Обратная совместимость: прямой access token
+
+```bash
+python hh.py --resume-id <resume_id> --token <access_token>
+```
+
+## Важные примечания
+
+- Если HH вернет новый `refresh_token`, скрипт пишет предупреждение в `hh.log` — обновите секрет `HH_REFRESH_TOKEN`.
+- Если нужно поменять периодичность — измените `cron` в `.github/workflows/refresh.yml`.
+- При ошибках авторизации проверьте актуальность OAuth-данных приложения и refresh token.
 
 ## Вклад
 
-Если у вас есть предложения или улучшения, вы можете создать pull request или открыть issue в этом репозитории.
+Если есть идеи по улучшению, создавайте issue и pull request.

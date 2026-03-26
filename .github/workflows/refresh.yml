@@ -10,33 +10,41 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@main
+        uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@main
+        uses: actions/setup-python@v5
         with:
           python-version: '3.x'
 
       - name: Install dependencies
-        run: |
-          pip install requests
-          pip install logging
+        run: pip install requests
 
       - name: Run script
-        run: python hh.py ${{ secrets.HH_TOKEN }} ${{ secrets.HH_RESUME_ID }}
+        run: |
+          python hh.py \
+            --resume-id "${{ secrets.HH_RESUME_ID }}" \
+            --client-id "${{ secrets.HH_CLIENT_ID }}" \
+            --client-secret "${{ secrets.HH_CLIENT_SECRET }}" \
+            --refresh-token "${{ secrets.HH_REFRESH_TOKEN }}"
 
       - name: Show log file
-        run: sed 's/${{ secrets.HH_RESUME_ID }}/[HIDDEN]/g' hh.log | cat
+        run: |
+          sed 's/${{ secrets.HH_RESUME_ID }}/[HIDDEN]/g' hh.log \
+          | sed 's/${{ secrets.HH_CLIENT_ID }}/[HIDDEN]/g' \
+          | sed 's/${{ secrets.HH_CLIENT_SECRET }}/[HIDDEN]/g' \
+          | sed 's/${{ secrets.HH_REFRESH_TOKEN }}/[HIDDEN]/g' \
+          | cat
 
       - name: Check response status
         run: |
-          if grep -q " 204 " hh.log; then
+          if grep -q "Publish response: 20[04]" hh.log; then
             echo "Резюме обновлено!"
             exit 0
-          elif grep -q " 400\| 404\| 429\| 403 " hh.log; then
+          elif grep -q "Publish response: 400\|Publish response: 403\|Publish response: 404\|Publish response: 429" hh.log; then
             echo "Ошибка запроса"
             exit 1
-          elif grep -q " 5[0-9][0-9] " hh.log; then
+          elif grep -q "Publish response: 5[0-9][0-9]" hh.log; then
             echo "Ошибка сервера"
             exit 1
           fi
