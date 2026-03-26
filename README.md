@@ -58,6 +58,18 @@ curl -X POST 'https://hh.ru/oauth/token' \
   -d 'redirect_uri=<REDIRECT_URI>'
 ```
 
+
+### Получение refresh_token через отдельный ручной workflow
+
+В репозитории добавлен workflow **`Get HH OAuth Tokens (Manual)`** (`.github/workflows/get-token.yml`).
+
+Как использовать:
+1. Откройте GitHub → **Actions** → **Get HH OAuth Tokens (Manual)** → **Run workflow**.
+2. Передайте 4 параметра: `client_id`, `client_secret`, `code`, `redirect_uri`.
+3. После запуска откройте `Step Summary` — там будет `refresh_token` для сохранения в секрет `HH_REFRESH_TOKEN`.
+
+> Этот workflow запускается **только вручную** и нужен для первичной OAuth-настройки.
+
 ## Режимы запуска скрипта
 
 ### 1) Рекомендуемый: через refresh token

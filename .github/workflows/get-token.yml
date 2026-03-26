@@ -1,0 +1,74 @@
+name: Get HH OAuth Tokens (Manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      client_id:
+        description: 'HH OAuth client_id'
+        required: true
+        type: string
+      client_secret:
+        description: 'HH OAuth client_secret'
+        required: true
+        type: string
+      code:
+        description: 'Authorization code from redirect URL'
+        required: true
+        type: string
+      redirect_uri:
+        description: 'Redirect URI configured in HH application'
+        required: true
+        type: string
+
+jobs:
+  exchange-code:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Exchange authorization code for tokens
+        id: exchange
+        env:
+          CLIENT_ID: ${{ github.event.inputs.client_id }}
+          CLIENT_SECRET: ${{ github.event.inputs.client_secret }}
+          CODE: ${{ github.event.inputs.code }}
+          REDIRECT_URI: ${{ github.event.inputs.redirect_uri }}
+        run: |
+          set -euo pipefail
+
+          RESPONSE=$(curl -sS -X POST 'https://hh.ru/oauth/token' \
+            -H 'Content-Type: application/x-www-form-urlencoded' \
+            --data-urlencode "grant_type=authorization_code" \
+            --data-urlencode "client_id=${CLIENT_ID}" \
+            --data-urlencode "client_secret=${CLIENT_SECRET}" \
+            --data-urlencode "code=${CODE}" \
+            --data-urlencode "redirect_uri=${REDIRECT_URI}")
+
+          if echo "${RESPONSE}" | jq -e '.error' >/dev/null; then
+            echo "HH OAuth error: $(echo "${RESPONSE}" | jq -r '.error')"
+            echo "Full response: ${RESPONSE}"
+            exit 1
+          fi
+
+          ACCESS_TOKEN=$(echo "${RESPONSE}" | jq -r '.access_token // empty')
+          REFRESH_TOKEN=$(echo "${RESPONSE}" | jq -r '.refresh_token // empty')
+          EXPIRES_IN=$(echo "${RESPONSE}" | jq -r '.expires_in // empty')
+
+          if [ -z "${ACCESS_TOKEN}" ] || [ -z "${REFRESH_TOKEN}" ]; then
+            echo "Unexpected HH response: ${RESPONSE}"
+            exit 1
+          fi
+
+          echo "::add-mask::${ACCESS_TOKEN}"
+          echo "::add-mask::${REFRESH_TOKEN}"
+
+          {
+            echo "### HH OAuth tokens generated"
+            echo
+            echo "- access_token expires in: ${EXPIRES_IN} seconds"
+            echo "- Save refresh_token to repository secret: HH_REFRESH_TOKEN"
+            echo "- Save client_id/client_secret to secrets: HH_CLIENT_ID / HH_CLIENT_SECRET"
+            echo
+            echo "Refresh token (copy now):"
+            echo '```'
+            echo "${REFRESH_TOKEN}"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
