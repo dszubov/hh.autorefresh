@@ -4,7 +4,7 @@
 
 Этот проект позволяет автоматически обновлять ваше резюме на HeadHunter (hh.ru) с использованием GitHub Actions.
 
-## Как это работает теперь
+## Как это работает
 
 Скрипт `hh.py` поддерживает **автоматическое получение access token из refresh token**:
 
@@ -22,7 +22,7 @@
    - `HH_RESUME_ID`: идентификатор резюме
    - `HH_CLIENT_ID`: OAuth `client_id` из вашего приложения HH
    - `HH_CLIENT_SECRET`: OAuth `client_secret` из вашего приложения HH
-   - `HH_REFRESH_TOKEN`: refresh token, полученный по инструкции из wiki
+   - `HH_REFRESH_TOKEN`: refresh token (получается один раз при первичной OAuth-авторизации)
 
 3. **Запустите GitHub Actions**:
    - Workflow `refresh.yml` запускается по расписанию каждые 4 часа.
@@ -40,9 +40,9 @@
    - Создайте приложение в `https://dev.hh.ru/admin` (кнопка «Добавить приложение»).
    - После одобрения приложения возьмите `client_id` и `client_secret` в карточке приложения.
 2. `HH_REFRESH_TOKEN`
-   - Пройдите OAuth Authorization Code flow из раздела OAuth документации.
+   - Нужен только для первичной настройки: пройдите OAuth Authorization Code flow из раздела OAuth документации.
    - Получите `code` через redirect URI, затем обменяйте `code` на токены через `POST https://hh.ru/oauth/token`.
-   - В ответе сохраните `refresh_token` в GitHub Secret `HH_REFRESH_TOKEN`.
+   - Сохраните `refresh_token` в GitHub Secret `HH_REFRESH_TOKEN`; дальше workflow сам получает новый `access_token` при каждом запуске.
 3. `HH_RESUME_ID`
    - Возьмите из URL резюме: `https://hh.ru/resume/<resume_id>`.
 
@@ -78,7 +78,8 @@ python hh.py --resume-id <resume_id> --token <access_token>
 
 ## Важные примечания
 
-- Если HH вернет новый `refresh_token`, скрипт пишет предупреждение в `hh.log` — обновите секрет `HH_REFRESH_TOKEN`.
+- `access_token` обновляется автоматически на каждом запуске из `refresh_token` (вручную каждый раз получать его не нужно).
+- `refresh_token` обычно заводится один раз при первичной OAuth-настройке.
 - Если нужно поменять периодичность — измените `cron` в `.github/workflows/refresh.yml`.
 - При ошибках авторизации проверьте актуальность OAuth-данных приложения и refresh token.
 
