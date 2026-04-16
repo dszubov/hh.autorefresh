@@ -2,41 +2,46 @@ name: Refresh Resume
 
 on:
   workflow_dispatch:
+    inputs:
+      authorization_code:
+        description: "One-time HH authorization code for bootstrap or recovery"
+        required: false
+        type: string
   schedule:
-    - cron: '56 */4 * * *'
+    - cron: "56 */4 * * *"
+
+concurrency:
+  group: hh-autorefresh
+  cancel-in-progress: false
+
+permissions:
+  contents: read
 
 jobs:
   refresh:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@main
+        uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@main
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.x'
+          python-version: "3.12"
 
       - name: Install dependencies
-        run: |
-          pip install requests
-          pip install logging
+        run: python -m pip install --upgrade pip requests pynacl
 
-      - name: Run script
-        run: python hh.py ${{ secrets.HH_TOKEN }} ${{ secrets.HH_RESUME_ID }}
-
-      - name: Show log file
-        run: sed 's/${{ secrets.HH_RESUME_ID }}/[HIDDEN]/g' hh.log | cat
-
-      - name: Check response status
-        run: |
-          if grep -q " 204 " hh.log; then
-            echo "Резюме обновлено!"
-            exit 0
-          elif grep -q " 400\| 404\| 429\| 403 " hh.log; then
-            echo "Ошибка запроса"
-            exit 1
-          elif grep -q " 5[0-9][0-9] " hh.log; then
-            echo "Ошибка сервера"
-            exit 1
-          fi
+      - name: Refresh token if needed and publish resume
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GH_SECRETS_WRITER_PAT: ${{ secrets.GH_SECRETS_WRITER_PAT }}
+          HH_CLIENT_ID: ${{ secrets.HH_CLIENT_ID }}
+          HH_CLIENT_SECRET: ${{ secrets.HH_CLIENT_SECRET }}
+          HH_RESUME_ID: ${{ secrets.HH_RESUME_ID }}
+          HH_ACCESS_TOKEN: ${{ secrets.HH_ACCESS_TOKEN }}
+          HH_REFRESH_TOKEN: ${{ secrets.HH_REFRESH_TOKEN }}
+          HH_TOKEN_EXPIRES_AT: ${{ secrets.HH_TOKEN_EXPIRES_AT }}
+          HH_AUTHORIZATION_CODE: ${{ inputs.authorization_code }}
+          HH_REDIRECT_URI: http://localhost:8080
+        run: python hh.py
